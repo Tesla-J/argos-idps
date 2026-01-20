@@ -1,15 +1,20 @@
 package ao.argosidps
 
-import org.python.util.PythonInterpreter
+import ao.argosidps.configurations.loadConfigurations
+import ao.argosidps.proxy.startProxy
 
-fun main() {
-    val python = "python3"
-    val pyMain = "./src/main/kotlin/ai/Main.py"
+object AIModelProperties{
+    const val PYTHON_INTERPRETER = "python3"
+    const val PYTHON_SCRIPT = "./src/main/kotlin/ai/Main.py"
+}
+
+suspend fun main() {
     val processBuilder = ProcessBuilder()
-    val process = processBuilder.command(python, pyMain).start()
-    val output = process.inputStream.bufferedReader().readText()
-    println(output)
-    //Runtime.getRuntime().exec("$python $pyMain")
-    //val interpreter = PythonInterpreter()
-    //interpreter.execfile("./src/main/kotlin/ai/Main.py")
+    val process = processBuilder.command(
+        AIModelProperties.PYTHON_INTERPRETER,
+        AIModelProperties.PYTHON_SCRIPT
+    ).start()
+    startProxy(loadConfigurations())
+    //val output = process.inputStream.bufferedReader().readText()
+    //println(output)
 }

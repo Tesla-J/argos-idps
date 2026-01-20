@@ -26,6 +26,7 @@ tasks.named<Jar>("jar") {
 dependencies {
     // Source: https://mvnrepository.com/artifact/org.python/jython-standalone
     implementation("org.python:jython-standalone:2.7.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     testImplementation(kotlin("test"))
 }
 
