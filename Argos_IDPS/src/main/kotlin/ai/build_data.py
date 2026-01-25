@@ -17,7 +17,7 @@ def load_and_clean_data(folder_path):
 
     print(f"Found {len(files)} CSV files:")
     for f in files:
-        print(" -", f)
+        print(f"  - {f}")
 
     df_list = []
     for file in files:
@@ -27,7 +27,6 @@ def load_and_clean_data(folder_path):
     df = pd.concat(df_list, ignore_index=True)
     df.columns = df.columns.str.strip()
 
-    # Limpeza
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.dropna(inplace=True)
 
@@ -45,17 +44,17 @@ def prepare_data_for_models(df, test_size=0.2, random_state=42):
     X = df.drop(['Label', 'Attack_encoded'], axis=1)
     y = df['Attack_encoded']
 
-    # BENIGN
+    # BENIGN data
     normal_mask = df['Label'] == 'BENIGN'
     X_normal = X[normal_mask]
 
     print(f"'BENIGN' samples found: {len(X_normal)} rows.")
 
-    # SMOTE
+    # SMOTE for balancing
     smote = SMOTE(random_state=random_state)
     X_balanced, y_balanced = smote.fit_resample(X, y)
 
-    print("After SMOTE class distribution:")
+    print("Class distribution after SMOTE:")
     print(pd.Series(y_balanced).value_counts())
 
     # Train / test split
@@ -67,7 +66,7 @@ def prepare_data_for_models(df, test_size=0.2, random_state=42):
         stratify=y_balanced
     )
 
-    # Scaling
+    # Scaling (fit on train, transform on test)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
