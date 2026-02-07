@@ -15,6 +15,7 @@ tasks.named<Jar>("jar") {
            "Main-Class" to "ao.argosidps.MainKt"
         )
     }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     //archiveClassifier = "uber"
     from(sourceSets.main.get().output)
     dependsOn(configurations.runtimeClasspath)
