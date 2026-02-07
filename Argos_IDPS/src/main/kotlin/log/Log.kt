@@ -17,7 +17,7 @@ suspend fun log(source:Socket, destination: Socket, data: ByteArray, action: Net
     // TODO send to log file
     withContext(Dispatchers.Default){
         launch {
-            var logMessage = "\u001b[32m${source.inetAddress.toString()} %s ${destination.inetAddress.toString()}\u001b[0m".format(action.name)
+            var logMessage = "\u001b[32m${source.inetAddress.toString()} %s ${destination.inetAddress.toString()}\u001b[0m".format(action)
             if (action == NetOps.SEND || action == NetOps.RECEIVE)
                 logMessage = logMessage.format(data.size)
             println(logMessage)

@@ -1,22 +1,22 @@
 package ao.argosidps.proxy
 
-import ao.argosidps.configurations.ConfigurationFields
-import ao.argosidps.configurations.ConfigurationValues
+import ao.argosidps.configurations.Configuration
+import ao.argosidps.configurations.DefaultConfiguration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.net.ServerSocket
 import java.net.Socket
 
-suspend fun startProxy(config: HashMap<String, String>){
-    val serverSocket = ServerSocket(config.get(ConfigurationFields.PORT)!!.toInt())
+suspend fun startProxy(){
+    val serverSocket = ServerSocket(Configuration.port)
     var client: Socket
 
     while (!false){
         client = serverSocket.accept()
         withContext(Dispatchers.Default){
-            when(config.get(ConfigurationFields.PROXY_TYPE)){
-                ConfigurationValues.SOCK4 -> launch {startSock4Proxy(client, config)}
+            when(Configuration.proxyType){
+                DefaultConfiguration.Values.SOCK4 -> launch {startSock4Proxy(client)}
             }
         }
     }

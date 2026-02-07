@@ -1,6 +1,6 @@
 package ao.argosidps
 
-import ao.argosidps.configurations.loadConfigurations
+import ao.argosidps.configurations.Configuration
 import ao.argosidps.proxy.startProxy
 
 object AIModelProperties{
@@ -14,7 +14,7 @@ suspend fun main() {
         AIModelProperties.PYTHON_INTERPRETER,
         AIModelProperties.PYTHON_SCRIPT
     ).start()
-    startProxy(loadConfigurations())
+    startProxy()
     //val output = process.inputStream.bufferedReader().readText()
     //println(output)
 }

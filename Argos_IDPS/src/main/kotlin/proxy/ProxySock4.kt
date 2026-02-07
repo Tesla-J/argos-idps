@@ -1,6 +1,6 @@
 package ao.argosidps.proxy
 
-import ao.argosidps.configurations.ConfigurationFields
+import ao.argosidps.configurations.Configuration
 import ao.argosidps.log.NetOps
 import ao.argosidps.log.log
 import kotlinx.coroutines.Dispatchers
@@ -15,21 +15,29 @@ import java.net.SocketTimeoutException
 import kotlin.experimental.and
 import kotlin.text.toInt
 
-suspend fun startSock4Proxy(client: Socket, config: HashMap<String, String>){
+suspend fun startSock4Proxy(client: Socket){
     val clientInputStream = client.inputStream
     val clientOutputStream = client.outputStream
     var destination: Socket? = null
-    val buffer = ByteArray(1024)
+    val buffer = ByteArray(4096 * 4)
     val response = byteArrayOf(0, 90, // Connection granted response
         buffer[2], buffer[3], // destination Port
         buffer[4], buffer[5], buffer[6], buffer[7])
-
-    if (clientInputStream.read(buffer) <= 0){
+    var readBytes = clientInputStream.read(buffer)
+    if (readBytes <= 0){
         println("Nothing received")
         return
     }
-    try {
-        destination = Socket(
+    buffer.forEachIndexed{i, n -> if (i < readBytes ) println(n)}
+    println("Data size = ${readBytes}")
+    println(Configuration.timeout)
+    //try {
+        if (isConnect(buffer))
+            processConnection(client, buffer)
+        else if (isBindRequest(buffer))
+            processBinding(client, buffer)
+        else println("None above!")
+        /*destination = Socket(
             getIPFromByteArray(4, buffer),
             getPortFromByteArray(2, buffer)
         )
@@ -47,9 +55,9 @@ suspend fun startSock4Proxy(client: Socket, config: HashMap<String, String>){
             sender.join()
             receiver.join()
             // TODO expect binding requests
-        }
+        }*/
         println("=================================================================================================")
-    }
+    /*}
     catch (e: SocketException){
         e.printStackTrace()
         // TODO only send when trying to connect
@@ -68,11 +76,11 @@ suspend fun startSock4Proxy(client: Socket, config: HashMap<String, String>){
     finally {
         destination?.close()
         client.close()
-    }
+    }*/
     //clientOutputStream.write(byteArrayOf(90, ))
 }
 
-private suspend fun processBinding(client: Socket, request: ByteArray) {
+private suspend fun processBinding(client: Socket, request: ByteArray) { println("Processing binding")
     val ip = getIPFromByteArray(4, request)
     val port = getPortFromByteArray(2, request)
     var destination: Socket? = null
@@ -85,10 +93,14 @@ private suspend fun processBinding(client: Socket, request: ByteArray) {
     val buffer = ByteArray(1024) // TODO load from configurations
 
     try {
+        outputStream.write(response)
+        outputStream.flush()
         destination = Socket(ip, port)
-        destination.soTimeout = 5000 // TODO load timeout from configs
+        destination.soTimeout = Configuration.port
         if (!destination.isConnected)
             throw SocketException()
+        outputStream.write(response)
+        outputStream.flush()
         log(client, destination, byteArrayOf(), NetOps.BIND)
         withContext(Dispatchers.Default){
             val send = launch { transmit(client, destination, true) }
@@ -99,22 +111,72 @@ private suspend fun processBinding(client: Socket, request: ByteArray) {
     }
     catch (e: SocketException) {
         response[1] = 91
-        outputStream.write(response)
-        outputStream.flush()
     }
     catch (e: SocketTimeoutException){
         response[1] = 91
-        outputStream.write(response)
-        outputStream.flush()
     }
     finally{
         destination?.close()
+        outputStream.write(response)
+        outputStream.flush()
+        outputStream.close()
+        client.close()
+    }
+}
+
+private suspend fun processConnection(client: Socket, request: ByteArray) { println("Processing connection")
+    val ip = getIPFromByteArray(4, request)
+    val port = getPortFromByteArray(2, request)
+    var destination: Socket? = null
+    val outputStream: OutputStream = client.outputStream
+    val response = byteArrayOf(0, 90,
+        request[2], request[3],
+        request[4], request[5], request[6], request[7]
+    )
+    var hadException = false
+    //var readBytes = 0
+    //val buffer = ByteArray(1024) // TODO load from configurations
+
+    try {
+        println("$ip:$port")
+        destination = Socket(ip, port)
+        destination.soTimeout = Configuration.port
+        if (!destination.isConnected)
+            throw SocketException()
+        log(client, destination, byteArrayOf(), NetOps.CONNECT)
+        outputStream.write(response)
+        outputStream.flush()
+        withContext(Dispatchers.IO){
+            val send = launch { transmit(client, destination, true) }
+            val receive = launch { transmit(destination, client, false) }
+            send.join()
+            receive.join()
+        }
+    }
+    catch (e: SocketException) {
+        response[1] = 91
+        hadException = true
+    }
+    catch (e: SocketTimeoutException){
+        response[1] = 91
+        hadException = true
+    }
+    catch (e: ConnectException){
+        response[1] = 91
+        hadException = true
+    }
+    finally{
+        destination?.close()
+        if (hadException)
+            outputStream.write(response)
+        outputStream.flush()
+        outputStream.close()
         client.close()
     }
 }
 
 private suspend fun transmit(source: Socket, destination: Socket, isFromClient: Boolean){
-    val buffer =  ByteArray(1024)
+    val buffer =  ByteArray(4096 * 4)
     val inputStream = source.inputStream
     val outputStream = destination.outputStream
     var readBytes = 0
@@ -122,10 +184,9 @@ private suspend fun transmit(source: Socket, destination: Socket, isFromClient: 
     while (!false){
         readBytes = inputStream.read(buffer)
         if (readBytes < 0) {
-            destination.shutdownOutput()
             break // TODO should I really continue?
         }
-        if (isFromClient && isBindRequest(buffer))
+        /*if (isFromClient && isBindRequest(buffer))
         {
             withContext(Dispatchers.Default){
                 launch{
@@ -133,16 +194,16 @@ private suspend fun transmit(source: Socket, destination: Socket, isFromClient: 
                     //processBinding(source, buffer)
                 }.start()
             }
-        }
+        }*/
         //println("DEBUG: transmission data\n${String(buffer)}")
         outputStream.write(buffer.copyOf(readBytes))
-        outputStream.flush()
+        //outputStream.flush()
         log(source, destination, buffer.copyOf(readBytes), NetOps.SEND)
     }
+    outputStream.flush()
+    destination.shutdownOutput()
 }
 
-private fun isBindRequest(data: ByteArray): Boolean {
-    if (data.size < 8 || data[2] != 2.toByte())
-        return false
-    return true
-}
+private fun isBindRequest(data: ByteArray): Boolean = !(data.size < 8 || data[1] != 2.toByte())
+
+private fun isConnect(data: ByteArray): Boolean = !(data.size < 8 || data [1] != 1.toByte())
