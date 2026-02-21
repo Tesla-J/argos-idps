@@ -3,8 +3,12 @@ package ao.argosidps.proxy
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.log.NetOps
 import ao.argosidps.log.log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import java.io.OutputStream
 import java.net.ConnectException
@@ -14,6 +18,8 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import kotlin.experimental.and
 import kotlin.text.toInt
+
+private val proxyScobe = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
 suspend fun startSock4Proxy(client: Socket){
     val clientInputStream = client.inputStream
@@ -28,14 +34,18 @@ suspend fun startSock4Proxy(client: Socket){
         println("Nothing received")
         return
     }
-    buffer.forEachIndexed{i, n -> if (i < readBytes ) println(n)}
-    println("Data size = ${readBytes}")
-    println(Configuration.timeout)
+    //buffer.forEachIndexed{i, n -> if (i < readBytes ) println(n)}
+    //println("Data size = ${readBytes}")
+    //println(Configuration.timeout)
     //try {
         if (isConnect(buffer))
-            processConnection(client, buffer)
+            runConcurrentProxyOperation {
+                processConnection(client, buffer)
+            }
         else if (isBindRequest(buffer))
-            processBinding(client, buffer)
+            runConcurrentProxyOperation {
+                processBinding(client, buffer)
+            }
         else println("None above!")
         /*destination = Socket(
             getIPFromByteArray(4, buffer),
@@ -80,6 +90,11 @@ suspend fun startSock4Proxy(client: Socket){
     //clientOutputStream.write(byteArrayOf(90, ))
 }
 
+private suspend fun runConcurrentProxyOperation(operation: suspend () -> Unit) =
+    proxyScobe.launch{
+        operation()
+    }
+
 private suspend fun processBinding(client: Socket, request: ByteArray) { println("Processing binding")
     val ip = getIPFromByteArray(4, request)
     val port = getPortFromByteArray(2, request)
@@ -102,11 +117,15 @@ private suspend fun processBinding(client: Socket, request: ByteArray) { println
         outputStream.write(response)
         outputStream.flush()
         log(client, destination, byteArrayOf(), NetOps.BIND)
-        withContext(Dispatchers.Default){
+        withContext(Dispatchers.IO){
             val send = launch { transmit(client, destination, true) }
             val receive = launch { transmit(destination, client, false) }
-            send.join()
-            receive.join()
+            //send.join()
+            //receive.join()
+            select<Unit>{
+                send.onJoin{receive.cancel()}
+                receive.onJoin{send.cancel()}
+            }
         }
     }
     catch (e: SocketException) {

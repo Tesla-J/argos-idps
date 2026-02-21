@@ -14,7 +14,7 @@ suspend fun startProxy(){
 
     while (!false){
         client = serverSocket.accept()
-        withContext(Dispatchers.Default){
+        withContext(Dispatchers.IO){
             when(Configuration.proxyType){
                 DefaultConfiguration.Values.SOCK4 -> launch {startSock4Proxy(client)}
             }
