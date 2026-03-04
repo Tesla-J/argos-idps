@@ -1,6 +1,7 @@
 package ao.argosidps
 
 import ao.argosidps.configurations.Configuration
+import ao.argosidps.privileges.isRoot
 import ao.argosidps.proxy.startProxy
 
 object AIModelProperties{
@@ -9,12 +10,16 @@ object AIModelProperties{
 }
 
 suspend fun main() {
-    val processBuilder = ProcessBuilder()
+    /*val processBuilder = ProcessBuilder()
     val process = processBuilder.command(
         AIModelProperties.PYTHON_INTERPRETER,
         AIModelProperties.PYTHON_SCRIPT
-    ).start()
-    startProxy()
+    ).start()*/
+    if (!isRoot()) {
+        println("root permission required!\n")
+        return
+    }
+    println("Running as root")
     //val output = process.inputStream.bufferedReader().readText()
     //println(output)
 }
