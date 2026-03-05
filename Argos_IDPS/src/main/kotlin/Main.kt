@@ -1,8 +1,10 @@
 package ao.argosidps
 
+import ao.argosidps.capture.startCapture
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.privileges.isRoot
 import ao.argosidps.proxy.startProxy
+import kotlin.system.exitProcess
 
 object AIModelProperties{
     const val PYTHON_INTERPRETER = "python3"
@@ -17,9 +19,9 @@ suspend fun main() {
     ).start()*/
     if (!isRoot()) {
         println("root permission required!\n")
-        return
+        exitProcess(1)
     }
-    println("Running as root")
+    startCapture()
     //val output = process.inputStream.bufferedReader().readText()
     //println(output)
 }
