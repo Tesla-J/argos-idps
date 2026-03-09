@@ -1,6 +1,7 @@
 package ao.argosidps
 
 import ao.argosidps.capture.startCapture
+import ao.argosidps.capture.testing
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.privileges.isRoot
 import ao.argosidps.proxy.startProxy
