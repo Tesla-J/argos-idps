@@ -1,6 +1,7 @@
 package ao.argosidps
 
 import ao.argosidps.capture.startCapture
+import ao.argosidps.colors.GREEN
 import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.configurations.Configuration
@@ -22,6 +23,17 @@ suspend fun main() {
         println("${RED}root permission required!${RESET}\n")
         exitProcess(1)
     }
+    println("""$GREEN
+      >>       >======>        >===>        >===>        >=>>=>   
+     >>=>      >=>    >=>    >>    >=>    >=>    >=>   >=>    >=> 
+    >> >=>     >=>    >=>   >=>         >=>        >=>  >=>       
+   >=>  >=>    >> >==>      >=>         >=>        >=>    >=>     
+  >=====>>=>   >=>  >=>     >=>   >===> >=>        >=>       >=>  
+ >=>      >=>  >=>    >=>    >=>    >>    >=>     >=>  >=>    >=> 
+>=>        >=> >=>      >=>   >====>        >===>        >=>>=>   
+                                                                      
+        |$RESET
+    """.trimMargin())
     startCapture()
     //val output = process.inputStream.bufferedReader().readText()
     //println(output)
