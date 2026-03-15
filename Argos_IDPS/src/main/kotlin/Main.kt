@@ -1,10 +1,10 @@
 package ao.argosidps
 
 import ao.argosidps.capture.startCapture
-import ao.argosidps.capture.testing
+import ao.argosidps.colors.RED
+import ao.argosidps.colors.RESET
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.privileges.isRoot
-import ao.argosidps.proxy.startProxy
 import kotlin.system.exitProcess
 
 object AIModelProperties{
@@ -19,7 +19,7 @@ suspend fun main() {
         AIModelProperties.PYTHON_SCRIPT
     ).start()*/
     if (!isRoot()) {
-        println("root permission required!\n")
+        println("${RED}root permission required!${RESET}\n")
         exitProcess(1)
     }
     startCapture()
