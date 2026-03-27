@@ -1,0 +1,49 @@
+import joblib
+import pandas as pd
+import os
+
+# =====================================================
+# 1. CARREGAR MODELOS E METADATA
+# =====================================================
+
+print("[ARGOS] A carregar modelos...")
+
+iso_model = joblib.load("iso_forest.pkl")
+rf_model = joblib.load("rf_classifier.pkl")
+scaler = joblib.load("scaler.pkl")
+FEATURE_COLUMNS = joblib.load("features.pkl")
+label_encoder = joblib.load("label_encoder.pkl")
+
+print("[ARGOS] Modelos carregados com sucesso")
+
+# =====================================================
+# 2. FUNÇÃO DE INFERÊNCIA (CHAMAR A IA)
+# =====================================================
+
+def argos_predict(flow_values):
+    if len(flow_values) != len(FEATURE_COLUMNS):
+        raise ValueError(
+            f"Esperado {len(FEATURE_COLUMNS)} valores, recebido {len(flow_values)}"
+        )
+    X = pd.DataFrame([flow_values], columns=FEATURE_COLUMNS)
+    X_scaled = scaler.transform(X)
+    iso_pred = iso_model.predict(X_scaled)[0]
+
+    if iso_pred == 1:
+        return {
+            "status": "NORMAL",
+            "attack_type": None
+        }
+
+    rf_pred = rf_model.predict(X_scaled)[0]
+    attack_name = label_encoder.inverse_transform([rf_pred])[0]
+
+    return {
+        "status": "ANOMALIA",
+        "attack_type": attack_name
+    }
+
+# =====================================================
+# 3. Analise das anomalias
+# =====================================================
+
