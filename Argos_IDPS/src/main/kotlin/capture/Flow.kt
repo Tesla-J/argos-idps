@@ -1,7 +1,11 @@
 package ao.argosidps.capture
 
+import ao.argosidps.ai.runAnalysis
 import ao.argosidps.colors.BLUE
+import ao.argosidps.colors.GREEN
+import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
+import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
 import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.TcpPacket
@@ -44,6 +48,7 @@ private fun <T: Number> List<T>.std(): Double {
 }
 
 private fun printFlow(flowId: Int){
+    val analysisResult = runAnalysis(flows[flowId]!!)
     println("""${BLUE}
         |Flow Duration:             ${flows[flowId]!![0]} seconds
         |Bytes/s:                   ${flows[flowId]!![1]}
@@ -58,6 +63,7 @@ private fun printFlow(flowId: Int){
         |RST Flag Count:            ${flows[flowId]!![10]}
         |Flow IAT Mean:             ${flows[flowId]!![11]}
         |Flow IAT Std:              ${flows[flowId]!![12]}
+        |Flow Analysis Result:      ${if (analysisResult.contains("ANOMALIA")) RED else GREEN} $analysisResult
         |$RESET
     """.trimMargin())
 }

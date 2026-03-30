@@ -1,5 +1,6 @@
 package ao.argosidps
 
+import ao.argosidps.ai.loadModel
 import ao.argosidps.capture.startCapture
 import ao.argosidps.colors.GREEN
 import ao.argosidps.colors.RED
@@ -7,11 +8,6 @@ import ao.argosidps.colors.RESET
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.privileges.isRoot
 import kotlin.system.exitProcess
-
-object AIModelProperties{
-    const val PYTHON_INTERPRETER = "python3"
-    const val PYTHON_SCRIPT = "./src/main/kotlin/ai/Main.py"
-}
 
 suspend fun main() {
     /*val processBuilder = ProcessBuilder()
@@ -34,6 +30,7 @@ suspend fun main() {
                                                                       
         |$RESET
     """.trimMargin())
+    loadModel()
     startCapture()
     //val output = process.inputStream.bufferedReader().readText()
     //println(output)

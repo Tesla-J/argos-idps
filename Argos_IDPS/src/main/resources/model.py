@@ -1,6 +1,9 @@
+#!/usr/bin/env python3
+
 import joblib
 import pandas as pd
 import os
+import sys
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA
@@ -47,3 +50,20 @@ def argos_predict(flow_values):
 # 3. Analise das anomalias
 # =====================================================
 
+def get_flow_params():
+    if len(sys.argv) != 14:
+        raise Exception("Invalid number of arguments: 13 were expected")
+    flow = []
+    for p in sys.argv[1:]:
+        flow.append(float(p)) # Yeah, the exception raise threat is intentional
+    return flow
+
+def run_analysis():
+    print(argos_predict(get_flow_params()))
+
+# =======================================================
+#                       LINK START!
+# =======================================================
+
+run_analysis()
+print("ANOMALIA")
