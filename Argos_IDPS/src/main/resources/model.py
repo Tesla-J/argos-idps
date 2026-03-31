@@ -9,15 +9,16 @@ import sys
 # 1. CARREGAR MODELOS E METADATA
 # =====================================================
 
-print("[ARGOS] A carregar modelos...")
+#print("[ARGOS] A carregar modelos...")
 
-iso_model = joblib.load("iso_forest.pkl")
-rf_model = joblib.load("rf_classifier.pkl")
-scaler = joblib.load("scaler.pkl")
-FEATURE_COLUMNS = joblib.load("features.pkl")
-label_encoder = joblib.load("label_encoder.pkl")
+path = '/tmp/argos/'
+iso_model = joblib.load(f"{path}iso_forest.pkl")
+rf_model = joblib.load(f"{path}rf_classifier.pkl")
+scaler = joblib.load(f"{path}scaler.pkl")
+FEATURE_COLUMNS = joblib.load(f"{path}features.pkl")
+label_encoder = joblib.load(f"{path}label_encoder.pkl")
 
-print("[ARGOS] Modelos carregados com sucesso")
+#print("[ARGOS] Modelos carregados com sucesso")
 
 # =====================================================
 # 2. FUNÇÃO DE INFERÊNCIA (CHAMAR A IA)
@@ -66,4 +67,4 @@ def run_analysis():
 # =======================================================
 
 run_analysis()
-print("ANOMALIA")
+#print("ANOMALIA")
