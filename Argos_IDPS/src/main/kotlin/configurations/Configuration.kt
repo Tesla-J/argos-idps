@@ -11,7 +11,7 @@ import java.io.InputStream
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-private const val FILENAME = "argos.conf" //"/etc/argos/argos.conf"
+private const val FILENAME = "/etc/argos/argos.conf"
 
 // TODO should it be private for better encapsulation?
 object DefaultConfiguration {
@@ -21,6 +21,7 @@ object DefaultConfiguration {
     object Fields {
         const val NIF_ADDR = "nif_addr"
         const val NIF_NETMASK = "nif_netmask"
+        const val ADMIN_EMAIL = "admin_email"
     }
 
     /**
@@ -29,6 +30,7 @@ object DefaultConfiguration {
     object Values {
         const val NIF_ADDR_DEFAULT = "127.0.0.1"
         const val NIF_NETMASK_DEFAULT = "255.0.0.0"
+        const val ADMIN_EMAIL_DEFAULT = "please@change.me"
     }
 }
 
@@ -43,6 +45,7 @@ private fun createDefaultConfiguration(configFile: File) {
     val output = FileOutputStream(configFile)
     output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_ADDR, DefaultConfiguration.Values.NIF_ADDR_DEFAULT))
     output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_NETMASK, DefaultConfiguration.Values.NIF_NETMASK_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.ADMIN_EMAIL, DefaultConfiguration.Values.ADMIN_EMAIL_DEFAULT))
     output.close()
 }
 
@@ -55,6 +58,7 @@ private fun loadConfigurations(): HashMap<String, String> {
 
     if(!configFile.exists()) {
         println("${YELLOW}Configuration file not found, generating...${RESET}")
+        configFile.parentFile.mkdirs()
         !configFile.createNewFile()
         createDefaultConfiguration(configFile)
         println("${YELLOW}Default configurations generated.${RESET}")
