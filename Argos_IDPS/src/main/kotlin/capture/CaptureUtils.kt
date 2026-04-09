@@ -3,6 +3,7 @@ package ao.argosidps.capture
 import ao.argosidps.configurations.Configuration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import org.pcap4j.core.PcapNetworkInterface
@@ -28,12 +29,12 @@ suspend fun startCapture() {
     for (x in 1..1000) {
         println("==================== Data ====================")
         val packet = handle.nextPacket
-        // TODO I'll only work with IPV4 for now
+        // I'll only work with IPV4 for now
         beforeCaptureTimestamp = handle.timestamp.time
         val ipv4Packet = packet.get<IpV4Packet>(IpV4Packet::class.java)
         afterCaptureTimestamp = handle.timestamp.time
-        withContext(Dispatchers.IO){
-            launch{
+        supervisorScope{
+            launch(Dispatchers.Default){
                 updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
             }
         }

@@ -27,7 +27,7 @@ fun loadModel() {
     // Enabling environment
     //ProcessBuilder("/bin/bash", "-c", "source /tmp/argos/env/bin/activate").start()
     // Installing python libs
-    ProcessBuilder("/usr/bin/pip3", "install", "pandas", "numpy", "scikit-learn==1.6.1")
+    ProcessBuilder(PYTHON_INTERPRETER, "-m", "pip", "install", "pandas", "numpy", "scikit-learn==1.6.1")
         .redirectOutput(ProcessBuilder.Redirect.INHERIT)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
