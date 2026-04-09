@@ -1,5 +1,8 @@
 package ao.argosidps.configurations
 
+import ao.argosidps.colors.RED
+import ao.argosidps.colors.RESET
+import ao.argosidps.colors.YELLOW
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -8,7 +11,7 @@ import java.io.InputStream
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-private const val FILENAME = "argos.conf" //"/etc/argos/argos.conf"
+private const val FILENAME = "/etc/argos/argos.conf"
 
 // TODO should it be private for better encapsulation?
 object DefaultConfiguration {
@@ -16,18 +19,18 @@ object DefaultConfiguration {
      * Valid configuration fields
      */
     object Fields {
-        const val PROXY_TYPE = "proxy-type"
-        const val PORT = "port"
-        const val TIMEOUT = "timeout"
+        const val NIF_ADDR = "nif_addr"
+        const val NIF_NETMASK = "nif_netmask"
+        const val ADMIN_EMAIL = "admin_email"
     }
 
     /**
      * Valid values for configuration values
      */
     object Values {
-        const val SOCK4 = "SOCK4"
-        const val DEFAULT_PORT = "3469"
-        const val DEFAULT_TIMEOUT = "10000"
+        const val NIF_ADDR_DEFAULT = "127.0.0.1"
+        const val NIF_NETMASK_DEFAULT = "255.0.0.0"
+        const val ADMIN_EMAIL_DEFAULT = "please@change.me"
     }
 }
 
@@ -40,9 +43,9 @@ private fun toConfigFormat(property: String, value: String): ByteArray =
 
 private fun createDefaultConfiguration(configFile: File) {
     val output = FileOutputStream(configFile)
-    output.write(toConfigFormat(DefaultConfiguration.Fields.PROXY_TYPE, DefaultConfiguration.Values.SOCK4))
-    output.write(toConfigFormat(DefaultConfiguration.Fields.PORT, DefaultConfiguration.Values.DEFAULT_PORT))
-    output.write(toConfigFormat(DefaultConfiguration.Fields.TIMEOUT, DefaultConfiguration.Values.DEFAULT_TIMEOUT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_ADDR, DefaultConfiguration.Values.NIF_ADDR_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_NETMASK, DefaultConfiguration.Values.NIF_NETMASK_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.ADMIN_EMAIL, DefaultConfiguration.Values.ADMIN_EMAIL_DEFAULT))
     output.close()
 }
 
@@ -54,8 +57,12 @@ private fun loadConfigurations(): HashMap<String, String> {
     var readLine: List<String>
 
     if(!configFile.exists()) {
+        println("${YELLOW}Configuration file not found, generating...${RESET}")
+        configFile.parentFile.mkdirs()
         !configFile.createNewFile()
         createDefaultConfiguration(configFile)
+        println("${YELLOW}Default configurations generated.${RESET}")
+
     }
     input = FileInputStream(configFile)
     scan = Scanner(input)
@@ -74,20 +81,15 @@ data object Configuration {
             loadConfigurations()
         }
         catch (e: IllegalArgumentException){
-            println("Invalid configuration parameters in configuration files");
+            println("${RED}Invalid configuration parameters in configuration files${RESET}");
             exitProcess(1)
         }
         catch (e: IOException){
-            println("Could not read configuration file");
+            println("${RED}Could not read configuration file${RESET}");
             e.printStackTrace()
             exitProcess(1)
         }
 
-    val proxyType = params[DefaultConfiguration.Fields.PROXY_TYPE]
-
-    val port = try { params[DefaultConfiguration.Fields.PORT]!!.toInt() }
-        catch (e: Exception){ DefaultConfiguration.Values.DEFAULT_PORT.toInt() }
-
-    val timeout = try { params[DefaultConfiguration.Fields.TIMEOUT]!!.toInt() }
-        catch (e: Exception) { DefaultConfiguration.Values.DEFAULT_TIMEOUT.toInt() }
+    val nifAddr = params[DefaultConfiguration.Fields.NIF_ADDR]
+    val nifNetmask = params[DefaultConfiguration.Fields.NIF_NETMASK]
 }
