@@ -50,7 +50,7 @@ private fun <T: Number> List<T>.std(): Double {
 private fun printFlow(flowId: Int){
     val analysisResult = runAnalysis(flows[flowId]!!)
     println("""${BLUE}
-        |Flow Duration:             ${flows[flowId]!![0]} seconds
+        |Flow Duration:             ${flows[flowId]!![0]} milliseconds
         |Bytes/s:                   ${flows[flowId]!![1]}
         |Packets/s:                 ${flows[flowId]!![2]}
         |Total FWD packages:        ${flows[flowId]!![3]}
@@ -79,7 +79,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
         IpNumber.TCP -> packet.get(TcpPacket::class.java)
         else -> null // TODO add ICMP support later
     }
-    val intervalInSeconds: Double
+    var intervalInSeconds: Double
 
     if (payload == null) return
     if (flow == null){
@@ -88,7 +88,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
         flowPacketsTotal[flowId] = 1
         flowArrivalTimestamps[flowId] = mutableListOf(timestampAfterCapture)
         flows[flowId] = arrayOf(
-            (timestampAfterCapture - timestampBeforeCapture).toDouble() / 1000, // Flow Duration TODO I'n not sure
+            (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration TODO I'n not sure
             flowBytesTotal[flowId]!!.toDouble(), // Bytes/s
             flowPacketsTotal[flowId]!!.toDouble(), // Packets/s
             if (isFwd) 1.0 else .0, // Total FWD packets
@@ -106,7 +106,8 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
         return
     }
     intervalInSeconds = (timestampAfterCapture - startTimestamps[flowId]!!) / 1000.0
-    flows[flowId]!![0] = (timestampAfterCapture - startTimestamps[flowId]!!).toDouble() / 1000 // Flow Duration
+    intervalInSeconds = if (intervalInSeconds == 0.0) 1.0 else intervalInSeconds
+    flows[flowId]!![0] = (timestampAfterCapture - startTimestamps[flowId]!!).toDouble() // Flow Duration
     flowBytesTotal[flowId] = flowBytesTotal.getValue(flowId) + packet.rawData.size.toLong()
     flows[flowId]!![1] = flowBytesTotal[flowId]!!.toDouble() / intervalInSeconds // Bytes/s
     flowPacketsTotal[flowId] = flowPacketsTotal[flowId]!! + 1
