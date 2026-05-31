@@ -7,6 +7,7 @@ import sys
 import socket
 import selectors
 import types
+import json
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA
@@ -87,13 +88,20 @@ def handle_connection(key, mask):
     if mask & selectors.EVENT_READ:
         received_data = sock.recv(BUFFER_SIZE)
         if received_data:
-            received_data = str(received_data)
             try:
-                data.outb += argos_predict(list(map(float, received_data.split('|'))))
+                data.outb += json.dumps(
+                    argos_predict(
+                        list(
+                            map(
+                                float,
+                                received_data.decode('utf-8').split('|'))
+                        )
+                    )
+                ).encode()
             except:
                 pass
         else:
-            sel.unresgister(sock)
+            sel.unregister(sock)
             sock.close()
     # todo test with elif
     if mask & selectors.EVENT_WRITE:

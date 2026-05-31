@@ -4,6 +4,7 @@ import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import org.python.icu.text.ReplaceableString
 import java.io.File
+import java.net.Socket
 
 const val PYTHON_INTERPRETER = "/tmp/argos/env/bin/python3"
 const val PYTHON_SCRIPT: String = "/tmp/argos/model.py"
@@ -82,17 +83,47 @@ fun loadModel() {
             }
     }
     println("${YELLOW}Model files extracted.${RESET}")
+    ProcessBuilder(PYTHON_INTERPRETER, "-v", PYTHON_SCRIPT).start()
+    // Chek if server is ready
+    var isReady = false
+    while (!isReady) {
+        try{
+            val sock = Socket("localhost", 3469)
+            if (sock.isConnected) {
+                sock.close()
+                isReady = true
+            }
+        }catch (_: Exception){
+            Thread.sleep(1000)
+        }
+    }
+    println("${YELLOW}Argos Analyst started.${RESET}")
 }
 
-fun runAnalysis(flow: Array<Double>): String =
-    ProcessBuilder(PYTHON_INTERPRETER, "-u", PYTHON_SCRIPT, *(flow.map { it.toString() }.toTypedArray()))
-        .start()
-        .inputStream
-        .bufferedReader()
-        .readText()
-        .trim()
-    /*val stderr = process.errorStream.bufferedReader().readText()
-    val stdout = process.inputStream.bufferedReader().readText()
-    println("ERROR: $stderr")
-    println("OUPUT: $stdout")
-    return "Nothin'"*/
+fun runAnalysis(flow: Array<Double>): String {
+    val addr = "localhost"
+    val port = 3469
+    val bufferSize = 1024
+    val socket:Socket
+    val result = ByteArray(bufferSize)
+    var bytesRead = 0;
+    val flowData = flow.mapIndexed { idx, value ->
+        value.toString() + if (idx < flow.size - 1) "|" else ""
+    }.reduce{ acc, next ->
+        acc + next
+    }.toByteArray()
+
+    try {
+        socket = Socket(addr, port)
+        while (!socket.isConnected)
+            continue // todo use sleep
+        val inputStream = socket.inputStream
+        socket.outputStream.write(flowData)
+        bytesRead = socket.inputStream.read(result)
+    } catch (e: Exception){
+        e.printStackTrace()
+        return "???"
+    }
+    socket.close()
+    return String(result, 0, bytesRead)
+}
