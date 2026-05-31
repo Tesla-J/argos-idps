@@ -4,6 +4,9 @@ import joblib
 import pandas as pd
 import os
 import sys
+import socket
+import selectors
+import types
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA
@@ -51,7 +54,7 @@ def argos_predict(flow_values):
 # 3. Analise das anomalias
 # =====================================================
 
-def get_flow_params():
+def get_flow_params(data):
     if len(sys.argv) != 14:
         raise Exception("Invalid number of arguments: 13 were expected")
     flow = []
@@ -66,5 +69,52 @@ def run_analysis():
 #                       LINK START!
 # =======================================================
 
-run_analysis()
-#print("ANOMALIA")
+HOST = 'localhost'
+PORT = 3469
+BUFFER_SIZE = 1024
+sel = selectors.DefaultSelector()
+
+def accept_wrapper(sock):
+    conn, addr = sock.accept()
+    conn.setblocking(False)
+    data = types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    sel.register(conn, events, data=data)
+
+def handle_connection(key, mask):
+    sock = key.fileobj
+    data = key.data
+    if mask & selectors.EVENT_READ:
+        received_data = sock.recv(BUFFER_SIZE)
+        if received_data:
+            received_data = str(received_data)
+            try:
+                data.outb += argos_predict(list(map(float, received_data.split('|'))))
+            except:
+                pass
+        else:
+            sel.unresgister(sock)
+            sock.close()
+    # todo test with elif
+    if mask & selectors.EVENT_WRITE:
+        if data.outb:
+            sent_count = sock.send(data.outb)
+            data.outb = data.outb[sent_count:]
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind((HOST, PORT))
+    sock.listen()
+    sock.setblocking(False)
+    sel.register(sock, selectors.EVENT_READ, data=None)
+    try:
+        while not False:
+            events = sel.select(timeout=None)
+            for key, mask in events:
+                if key.data is None:
+                    accept_wrapper(key.fileobj)
+                else:
+                    handle_connection(key, mask)
+    except KeyboardInterrupt:
+        print('Exiting...')
+    finally:
+        sel.close()
