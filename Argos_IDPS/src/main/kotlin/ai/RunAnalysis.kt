@@ -1,5 +1,6 @@
 package ao.argosidps.ai
 
+import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import org.python.icu.text.ReplaceableString
@@ -83,7 +84,7 @@ fun loadModel() {
             }
     }
     println("${YELLOW}Model files extracted.${RESET}")
-    ProcessBuilder(PYTHON_INTERPRETER, "-v", PYTHON_SCRIPT).start()
+    ProcessBuilder(PYTHON_INTERPRETER, PYTHON_SCRIPT).start()
     // Chek if server is ready
     var isReady = false
     while (!isReady) {
@@ -94,7 +95,8 @@ fun loadModel() {
                 isReady = true
             }
         }catch (_: Exception){
-            Thread.sleep(1000)
+            Thread.sleep(3000)
+            println("${RED}Failed to connect to analysis module, retrying...${RESET}")
         }
     }
     println("${YELLOW}Argos Analyst started.${RESET}")
