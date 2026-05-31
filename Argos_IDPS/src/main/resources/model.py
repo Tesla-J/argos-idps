@@ -40,7 +40,7 @@ def argos_predict(flow_values):
     if iso_pred == 1:
         return {
             "status": "NORMAL",
-            "attack_type": None
+            "attack_type": 'Unknown'
         }
 
     rf_pred = rf_model.predict(X_scaled)[0]
