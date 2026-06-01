@@ -8,6 +8,7 @@ import socket
 import selectors
 import types
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA
@@ -33,19 +34,16 @@ def argos_predict(flow_values):
         raise ValueError(
             f"Esperado {len(FEATURE_COLUMNS)} valores, recebido {len(flow_values)}"
         )
-    X = pd.DataFrame([flow_values], columns=FEATURE_COLUMNS)
+    X = np.array([flow_values], dtype=float) #pd.DataFrame([flow_values], columns=FEATURE_COLUMNS)
     X_scaled = scaler.transform(X)
     iso_pred = iso_model.predict(X_scaled)[0]
-
     if iso_pred == 1:
         return {
             "status": "NORMAL",
             "attack_type": 'Unknown'
         }
-
     rf_pred = rf_model.predict(X_scaled)[0]
     attack_name = label_encoder.inverse_transform([rf_pred])[0]
-
     return {
         "status": "ANOMALIA",
         "attack_type": attack_name
@@ -106,23 +104,51 @@ def handle_connection(key, mask):
     # todo test with elif
     if mask & selectors.EVENT_WRITE:
         if data.outb:
-            sent_count = sock.send(data.outb)
+            sent_count = sock.sendall(data.outb)
             data.outb = data.outb[sent_count:]
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.bind((HOST, PORT))
-    sock.listen()
-    sock.setblocking(False)
-    sel.register(sock, selectors.EVENT_READ, data=None)
-    try:
+def handle_analysis(conn):
+    with conn:
+        try:
+            data = sock.recv(BUFFER_SIZE)
+            if not data:
+                return
+            result += json.dumps(
+                argos_predict(
+                    list(
+                        map(
+                            float,
+                            data.decode('utf-8').split('|'))
+                    )
+                )
+            ).encode()
+            conn.sendall(result)
+        except Exception as e:
+            pass #print(f'[ERROR] {e}', file=sys.stderr)
+
+def init():
+    workers = os.cpu_count() * 4
+    executor = ThreadPoolExecutor(max_workers=workers)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((HOST, PORT))
+        sock.listen(256)
+        #sock.setblocking(False)
+        #sel.register(sock, selectors.EVENT_READ, data=None)
+        #try:
         while not False:
-            events = sel.select(timeout=None)
-            for key, mask in events:
-                if key.data is None:
-                    accept_wrapper(key.fileobj)
-                else:
-                    handle_connection(key, mask)
-    except KeyboardInterrupt:
-        print('Exiting...')
-    finally:
-        sel.close()
+            #events = sel.select(timeout=None)
+            #for key, mask in events:
+            #    if key.data is None:
+            #        accept_wrapper(key.fileobj)
+            #    else:
+            #        handle_connection(key, mask)
+            conn, _ = sock.accept()
+            handle_analysis(conn)
+        #except KeyboardInterrupt:
+        #    print('Exiting...')
+        #finally:
+        #    sel.close()
+
+if __name__ == '__main__':
+    main()
