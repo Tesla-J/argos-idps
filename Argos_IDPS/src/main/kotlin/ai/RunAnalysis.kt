@@ -84,7 +84,9 @@ fun loadModel() {
             }
     }
     println("${YELLOW}Model files extracted.${RESET}")
-    ProcessBuilder(PYTHON_INTERPRETER, PYTHON_SCRIPT).start()
+    val serverProcess = ProcessBuilder(PYTHON_INTERPRETER, PYTHON_SCRIPT)
+        .redirectError(ProcessBuilder.Redirect.INHERIT)
+        .start()
     // Chek if server is ready
     var isReady = false
     while (!isReady) {
@@ -99,6 +101,10 @@ fun loadModel() {
             println("${RED}Failed to connect to analysis module, retrying...${RESET}")
         }
     }
+    // Sets a hook to kill the server when jvm exits
+    Runtime.getRuntime().addShutdownHook(Thread {
+        serverProcess?.destroy()
+    })
     println("${YELLOW}Argos Analyst started.${RESET}")
 }
 
