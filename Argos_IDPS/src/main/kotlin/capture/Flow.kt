@@ -7,21 +7,26 @@ import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.TcpPacket
 import org.pcap4j.packet.UdpPacket
 import org.pcap4j.packet.namednumber.IpNumber
 import java.net.InetAddress
+import javax.swing.plaf.multi.MultiTextUI
 import javax.swing.text.FlowView
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-private val flows = HashMap<Int, Array<Double>>()
-private val startTimestamps = HashMap<Int, Long>()
-private val flowArrivalTimestamps = HashMap<Int, MutableList<Long>>()
-private val flowBytesTotal = HashMap<Int, Long>()
-private val flowPacketsTotal = HashMap<Int, Int>()
+private val flows = ConcurrentHashMap<Int, Array<Double>>()
+private val startTimestamps = ConcurrentHashMap<Int, Long>()
+private val flowArrivalTimestamps = ConcurrentHashMap<Int, MutableList<Long>>()
+private val flowBytesTotal = ConcurrentHashMap<Int, Long>()
+private val flowPacketsTotal = ConcurrentHashMap<Int, Int>()
+private val flowLocks = ConcurrentHashMap<Int, Mutex>()
 
 fun isNetworkEquals(addr1: String, addr2: String, netmask: String): Boolean{
     val addr1ULong = addr1
@@ -47,8 +52,7 @@ private fun <T: Number> List<T>.std(): Double {
     return (sqrt(sum / double.size))
 }
 
-private fun printFlow(flowId: Int){
-    val analysisResult = runAnalysis(flows[flowId]!!)
+private fun printFlow(flowId: Int, analysisResult: String){
     println("""${BLUE}
         |Flow Duration:             ${flows[flowId]!![0]} milliseconds
         |Bytes/s:                   ${flows[flowId]!![1]}
@@ -83,49 +87,64 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
 
     if (payload == null) return
     if (flow == null){
-        startTimestamps[flowId] = timestampAfterCapture
-        flowBytesTotal[flowId] = packet.rawData.size.toLong()
-        flowPacketsTotal[flowId] = 1
-        flowArrivalTimestamps[flowId] = mutableListOf(timestampAfterCapture)
-        flows[flowId] = arrayOf(
-            (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration TODO I'n not sure
-            flowBytesTotal[flowId]!!.toDouble(), // Bytes/s
-            flowPacketsTotal[flowId]!!.toDouble(), // Packets/s
-            if (isFwd) 1.0 else .0, // Total FWD packets
-            if (!isFwd) 1.0 else .0, // Total Backward Packets
-            packet.rawData.size.toDouble(), // Average Packet Size
-            if (isFwd) packet.rawData.size.toDouble() else .0, // FWD packet length max
-            if (!isFwd) packet.rawData.size.toDouble() else .0, // BWD packet length max
-            if (payload is TcpPacket && payload.header.syn) 1.0 else .0, // SYN flag count
-            if (payload is TcpPacket && payload.header.fin) 1.0 else .0, // FIN flag count
-            if (payload is TcpPacket && payload.header.rst) 1.0 else .0, // RST flag count
-            .0, // Flow IAT mean
-            .0, // FLOW IAT Std
-        )
-        printFlow(flowId)
+        flowLocks.getOrPut(flowId) { Mutex() }.withLock {
+            startTimestamps[flowId] = timestampAfterCapture
+            flowBytesTotal[flowId] = packet.rawData.size.toLong()
+            flowPacketsTotal[flowId] = 1
+            flowArrivalTimestamps[flowId] = mutableListOf(timestampAfterCapture)
+            flows[flowId] = arrayOf(
+                (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration TODO I'n not sure
+                flowBytesTotal[flowId]!!.toDouble(), // Bytes/s
+                flowPacketsTotal[flowId]!!.toDouble(), // Packets/s
+                if (isFwd) 1.0 else .0, // Total FWD packets
+                if (!isFwd) 1.0 else .0, // Total Backward Packets
+                packet.rawData.size.toDouble(), // Average Packet Size
+                if (isFwd) packet.rawData.size.toDouble() else .0, // FWD packet length max
+                if (!isFwd) packet.rawData.size.toDouble() else .0, // BWD packet length max
+                if (payload is TcpPacket && payload.header.syn) 1.0 else .0, // SYN flag count
+                if (payload is TcpPacket && payload.header.fin) 1.0 else .0, // FIN flag count
+                if (payload is TcpPacket && payload.header.rst) 1.0 else .0, // RST flag count
+                .0, // Flow IAT mean
+                .0, // FLOW IAT Std
+            )
+        }
+        val analysisResult = runAnalysis(flows[flowId]!!)
+        printFlow(flowId, analysisResult)
         return
     }
-    intervalInSeconds = (timestampAfterCapture - startTimestamps[flowId]!!) / 1000.0
-    intervalInSeconds = if (intervalInSeconds == 0.0) 1.0 else intervalInSeconds
-    flows[flowId]!![0] = (timestampAfterCapture - startTimestamps[flowId]!!).toDouble() // Flow Duration
-    flowBytesTotal[flowId] = flowBytesTotal.getValue(flowId) + packet.rawData.size.toLong()
-    flows[flowId]!![1] = flowBytesTotal[flowId]!!.toDouble() / intervalInSeconds // Bytes/s
-    flowPacketsTotal[flowId] = flowPacketsTotal[flowId]!! + 1
-    flows[flowId]!![2] =  flowPacketsTotal[flowId]!! / intervalInSeconds // Packets/s
-    flows[flowId]!![3] = if (isFwd) flows[flowId]!![3] + 1 else flows[flowId]!![3] // Total FWD Packets
-    flows[flowId]!![4] = if (!isFwd) flows[flowId]!![4] + 1 else flows[flowId]!![4] // Total Backward Packets
-    flows[flowId]!![5] = flowBytesTotal[flowId]!!.toDouble() / flowPacketsTotal[flowId]!! // Average Packet sIZE
-    flows[flowId]!![6] = if (isFwd) max(flows[flowId]!![6], packet.rawData.size.toDouble()) else flows[flowId]!![6] // FWD packed length max
-    flows[flowId]!![7] = if (!isFwd) max(flows[flowId]!![7], packet.rawData.size.toDouble()) else flows[flowId]!![7] // BWD packed length max
-    flows[flowId]!![8] = flows[flowId]!![8] + if (payload is TcpPacket && payload.header.syn) 1 else 0 // SYN flag count
-    flows[flowId]!![9] = flows[flowId]!![9] + if (payload is TcpPacket && payload.header.fin) 1 else 0 // FIN flag count
-    flows[flowId]!![10] = flows[flowId]!![10] + if (payload is TcpPacket && payload.header.rst) 1 else 0 // RST flag count
-    flowArrivalTimestamps[flowId]!!.add(timestampAfterCapture)
-    val totalArrivals = flowArrivalTimestamps[flowId]!!.size
-    val iat = flowArrivalTimestamps[flowId]!!.zipWithNext { first, second -> second - first}
-    flows[flowId]!![11] = iat.average() // Flow IAT mean
-    flows[flowId]!![12] = iat.std() // Flow IAT Std
-    printFlow(flowId)
+    flowLocks.getOrPut(flowId) { Mutex() }.withLock {
+        intervalInSeconds = (timestampAfterCapture - startTimestamps[flowId]!!) / 1000.0
+        intervalInSeconds = if (intervalInSeconds == 0.0) 1.0 else intervalInSeconds
+        flows[flowId]!![0] = (timestampAfterCapture - startTimestamps[flowId]!!).toDouble() // Flow Duration
+        flowBytesTotal[flowId] = flowBytesTotal.getValue(flowId) + packet.rawData.size.toLong()
+        flows[flowId]!![1] = flowBytesTotal[flowId]!!.toDouble() / intervalInSeconds // Bytes/s
+        flowPacketsTotal[flowId] = flowPacketsTotal[flowId]!! + 1
+        flows[flowId]!![2] = flowPacketsTotal[flowId]!! / intervalInSeconds // Packets/s
+        flows[flowId]!![3] = if (isFwd) flows[flowId]!![3] + 1 else flows[flowId]!![3] // Total FWD Packets
+        flows[flowId]!![4] = if (!isFwd) flows[flowId]!![4] + 1 else flows[flowId]!![4] // Total Backward Packets
+        flows[flowId]!![5] = flowBytesTotal[flowId]!!.toDouble() / flowPacketsTotal[flowId]!! // Average Packet sIZE
+        flows[flowId]!![6] = if (isFwd) max(
+            flows[flowId]!![6],
+            packet.rawData.size.toDouble()
+        ) else flows[flowId]!![6] // FWD packed length max
+        flows[flowId]!![7] = if (!isFwd) max(
+            flows[flowId]!![7],
+            packet.rawData.size.toDouble()
+        ) else flows[flowId]!![7] // BWD packed length max
+        flows[flowId]!![8] =
+            flows[flowId]!![8] + if (payload is TcpPacket && payload.header.syn) 1 else 0 // SYN flag count
+        flows[flowId]!![9] =
+            flows[flowId]!![9] + if (payload is TcpPacket && payload.header.fin) 1 else 0 // FIN flag count
+        flows[flowId]!![10] =
+            flows[flowId]!![10] + if (payload is TcpPacket && payload.header.rst) 1 else 0 // RST flag count
+        flowArrivalTimestamps[flowId]!!.add(timestampAfterCapture)
+        val totalArrivals = flowArrivalTimestamps[flowId]!!.size
+        val iat = flowArrivalTimestamps[flowId]!!.zipWithNext { first, second -> second - first }
+        flows[flowId]!![11] = iat.average() // Flow IAT mean
+        flows[flowId]!![12] = iat.std() // Flow IAT Std
+    }
+    val analysisResult = runAnalysis(flows[flowId]!!)
+    printFlow(flowId, analysisResult)
 }
 
 suspend fun getTuple(packet: IpV4Packet): Array<String> {
