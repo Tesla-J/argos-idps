@@ -12,7 +12,10 @@ import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.TcpPacket
 import org.pcap4j.packet.UdpPacket
 import org.pcap4j.packet.namednumber.IpNumber
+import java.io.File
 import java.sql.Timestamp
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 
 suspend fun startCapture() {
@@ -24,6 +27,11 @@ suspend fun startCapture() {
     val handle = nif.openLive(snapLen, mode, timeout)
     var beforeCaptureTimestamp: Long
     var afterCaptureTimestamp: Long
+    val dumpPath = "/var/log/argos"
+    File(dumpPath).mkdirs() // creates /var/log/argos if the folder does not exist
+    val dateFormater = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
+    val dumpFile = "${dumpPath}/captures_${LocalDateTime.now().format(dateFormater)}.pcap"
+    val dumper = handle.dumpOpen(dumpFile)
 
     println("Capturing from ${nif.name}")
     supervisorScope{
@@ -37,9 +45,11 @@ suspend fun startCapture() {
             launch(Dispatchers.IO){
                 updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
             }
+            dumper.dump(packet, handle.timestamp)
         }
         //println("$ipv4Packet")
     }
     //val inetAddress = ipv4Packet.header.srcAddr
+    dumper.close()
     handle.close()
 }
