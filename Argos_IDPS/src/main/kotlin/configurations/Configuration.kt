@@ -22,6 +22,10 @@ object DefaultConfiguration {
         const val NIF_ADDR = "nif_addr"
         const val NIF_NETMASK = "nif_netmask"
         const val ADMIN_EMAIL = "admin_email"
+        const val SMTP_HOST = "smtp_host"
+        const val SMTP_PORT = "25"
+        const val SMTP_USERNAME = "smtp_username"
+        const val SMTP_PASSWD = "smtp_passwd"
     }
 
     /**
@@ -31,6 +35,10 @@ object DefaultConfiguration {
         const val NIF_ADDR_DEFAULT = "127.0.0.1"
         const val NIF_NETMASK_DEFAULT = "255.0.0.0"
         const val ADMIN_EMAIL_DEFAULT = "please@change.me"
+        const val SMTP_HOST_DEFAULT = "smtp.domail.com"
+        const val SMTP_PORT_DEFAULT = "25"
+        const val SMTP_USERNAME_DEFAULT = "argos@domain.com"
+        const val SMTP_PASSWRD_DEFAULT = "secretpassword"
     }
 }
 
@@ -46,6 +54,10 @@ private fun createDefaultConfiguration(configFile: File) {
     output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_ADDR, DefaultConfiguration.Values.NIF_ADDR_DEFAULT))
     output.write(toConfigFormat(DefaultConfiguration.Fields.NIF_NETMASK, DefaultConfiguration.Values.NIF_NETMASK_DEFAULT))
     output.write(toConfigFormat(DefaultConfiguration.Fields.ADMIN_EMAIL, DefaultConfiguration.Values.ADMIN_EMAIL_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.SMTP_HOST, DefaultConfiguration.Values.SMTP_HOST_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.SMTP_PORT, DefaultConfiguration.Values.SMTP_PORT_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.SMTP_USERNAME, DefaultConfiguration.Values.SMTP_USERNAME_DEFAULT))
+    output.write(toConfigFormat(DefaultConfiguration.Fields.SMTP_PASSWD, DefaultConfiguration.Values.SMTP_PASSWRD_DEFAULT))
     output.close()
 }
 
@@ -92,4 +104,9 @@ data object Configuration {
 
     val nifAddr = params[DefaultConfiguration.Fields.NIF_ADDR]
     val nifNetmask = params[DefaultConfiguration.Fields.NIF_NETMASK]
+    val adminEmail = params[DefaultConfiguration.Fields.ADMIN_EMAIL]
+    val smtpHost = params[DefaultConfiguration.Fields.SMTP_HOST]
+    val smtpPort = params[DefaultConfiguration.Fields.SMTP_PORT]
+    val smtpUser = params[DefaultConfiguration.Fields.SMTP_USERNAME]
+    val smtpPasswd = params[DefaultConfiguration.Fields.SMTP_PASSWD]
 }
