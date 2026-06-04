@@ -84,6 +84,13 @@ fun loadModel() {
             }
     }
     println("${YELLOW}Model files extracted.${RESET}")
+    println("${YELLOW}Freeing port 3469.${RESET}")
+    ProcessBuilder("fuser", "-k", "3469/tcp")
+        .redirectOutput(ProcessBuilder.Redirect.INHERIT)
+        .redirectError(ProcessBuilder.Redirect.INHERIT)
+        .start()
+        .waitFor()
+    println("${YELLOW}Starting Argos Analyst.${RESET}")
     val serverProcess = ProcessBuilder(PYTHON_INTERPRETER, PYTHON_SCRIPT)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .start()
