@@ -2,6 +2,7 @@
 
 import joblib
 import pandas as pd
+import numpy as np
 import os
 import sys
 import socket
@@ -49,21 +50,6 @@ def argos_predict(flow_values):
         "attack_type": attack_name
     }
 
-# =====================================================
-# 3. Analise das anomalias
-# =====================================================
-
-def get_flow_params(data):
-    if len(sys.argv) != 14:
-        raise Exception("Invalid number of arguments: 13 were expected")
-    flow = []
-    for p in sys.argv[1:]:
-        flow.append(float(p)) # Yeah, the exception raise threat is intentional
-    return flow
-
-def run_analysis():
-    print(argos_predict(get_flow_params()))
-
 # =======================================================
 #                       LINK START!
 # =======================================================
@@ -110,10 +96,10 @@ def handle_connection(key, mask):
 def handle_analysis(conn):
     with conn:
         try:
-            data = sock.recv(BUFFER_SIZE)
+            data = conn.recv(BUFFER_SIZE)
             if not data:
                 return
-            result += json.dumps(
+            result = json.dumps(
                 argos_predict(
                     list(
                         map(
@@ -133,22 +119,9 @@ def init():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((HOST, PORT))
         sock.listen(256)
-        #sock.setblocking(False)
-        #sel.register(sock, selectors.EVENT_READ, data=None)
-        #try:
         while not False:
-            #events = sel.select(timeout=None)
-            #for key, mask in events:
-            #    if key.data is None:
-            #        accept_wrapper(key.fileobj)
-            #    else:
-            #        handle_connection(key, mask)
             conn, _ = sock.accept()
-            handle_analysis(conn)
-        #except KeyboardInterrupt:
-        #    print('Exiting...')
-        #finally:
-        #    sel.close()
+            executor.submit(handle_analysis, conn)
 
 if __name__ == '__main__':
-    main()
+    init()
