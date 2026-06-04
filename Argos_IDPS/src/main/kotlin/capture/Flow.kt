@@ -9,6 +9,9 @@ import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.pcap4j.packet.IcmpV4CommonPacket
+import org.pcap4j.packet.IcmpV4EchoPacket
+import org.pcap4j.packet.IcmpV4TimestampPacket
 import org.pcap4j.packet.IpV4Packet
 import org.pcap4j.packet.TcpPacket
 import org.pcap4j.packet.UdpPacket
@@ -81,7 +84,8 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
     val payload =  when (packet.header.protocol){
         IpNumber.UDP -> packet.get(UdpPacket::class.java)
         IpNumber.TCP -> packet.get(TcpPacket::class.java)
-        else -> null // TODO add ICMP support later
+        IpNumber.ICMPV4 -> packet.get(IcmpV4CommonPacket::class.java)
+        else -> null // for other protocols
     }
     var intervalInSeconds: Double
 
@@ -93,7 +97,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
             flowPacketsTotal[flowId] = 1
             flowArrivalTimestamps[flowId] = mutableListOf(timestampAfterCapture)
             flows[flowId] = arrayOf(
-                (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration TODO I'n not sure
+                (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration
                 flowBytesTotal[flowId]!!.toDouble(), // Bytes/s
                 flowPacketsTotal[flowId]!!.toDouble(), // Packets/s
                 if (isFwd) 1.0 else .0, // Total FWD packets
@@ -151,15 +155,53 @@ suspend fun getTuple(packet: IpV4Packet): Array<String> {
     val srcAddr = packet.header.srcAddr
     val dstAddr = packet.header.dstAddr
     val protocol = packet.header.protocol
-    val payload = if (protocol == IpNumber.UDP)
-        packet.get(UdpPacket::class.java)
-    else if (protocol == IpNumber.TCP)
-        packet.get(TcpPacket::class.java)
-    else
-        null // TODO add ICMP support later
-    val srcPort = payload?.header?.srcPort?.valueAsInt()
-    val dstPort = payload?.header?.dstPort?.valueAsInt()
-    //if (payload == null)
-    //    return ""
-    return arrayOf(srcAddr.hostAddress, srcPort.toString(), dstAddr.hostAddress, dstPort.toString(), protocol.name())
+
+    return when (protocol){
+        IpNumber.UDP -> {
+            val udp = packet.get(UdpPacket::class.java)
+            arrayOf(
+                srcAddr.hostAddress,
+                udp?.header?.srcPort.toString(),
+                dstAddr.hostAddress,
+                udp?.header?.dstPort.toString(),
+                protocol.name()
+            )
+        }
+
+        IpNumber.TCP -> {
+            val tcp = packet.get(TcpPacket::class.java)
+            arrayOf(
+                srcAddr.hostAddress,
+                tcp?.header?.srcPort.toString(),
+                dstAddr.hostAddress,
+                tcp?.header?.dstPort.toString(),
+                protocol.name()
+            )
+        }
+
+        IpNumber.ICMPV4 -> {
+            val icmp = packet.get(IcmpV4CommonPacket::class.java)
+            val type = icmp?.header?.type?.valueAsString() ?: "0"
+            val id = when(val inner = icmp?.payload){
+                is IcmpV4EchoPacket -> inner.header.identifier.toInt()
+                is IcmpV4TimestampPacket -> inner.header.identifier.toInt()
+                else -> 0
+            }
+            arrayOf(
+                srcAddr.hostAddress,
+                type,
+                dstAddr.hostAddress,
+                id.toString(), // why this is not showing error when .toString() is not used?
+                protocol.name()
+            )
+        }
+
+        else -> arrayOf(
+            srcAddr.hostAddress,
+            "0",
+            dstAddr.hostAddress,
+            "0",
+            protocol.name()
+            )
+    }
 }
