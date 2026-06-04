@@ -1,0 +1,4 @@
+<configuration>
+    <logger name="org.pcap4j" level="WARN"/>
+    <root level="INFO"/>
+</configuration>
