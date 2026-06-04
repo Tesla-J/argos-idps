@@ -38,6 +38,7 @@ suspend fun startCapture() {
         while (!false) {
             //println("==================== Data ====================")
             val packet = handle.nextPacket
+            if (packet == null) continue
             // I'll only work with IPV4 for now
             beforeCaptureTimestamp = handle.timestamp.time
             val ipv4Packet = packet.get<IpV4Packet>(IpV4Packet::class.java)
