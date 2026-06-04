@@ -21,7 +21,11 @@ tasks.named<Jar>("jar") {
     dependsOn(configurations.runtimeClasspath)
     from({
         configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
-    })
+    }){
+        exclude("META-INF/*.SF")   // add these three
+        exclude("META-INF/*.RSA")  // lines to exclude
+        exclude("META-INF/*.DSA")  // signature files
+    }
 }
 
 dependencies {
@@ -40,6 +44,8 @@ dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
     // Source: https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
     implementation("ch.qos.logback:logback-classic:1.5.32")
+    implementation("at.quickme.kotlinmailer:core:1.1.20")
+    implementation("at.quickme.kotlinmailer:html:1.1.20")
     testImplementation(kotlin("test"))
 }
 
@@ -47,5 +53,8 @@ tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
 }
