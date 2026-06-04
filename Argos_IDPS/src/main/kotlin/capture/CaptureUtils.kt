@@ -35,17 +35,21 @@ suspend fun startCapture() {
 
     println("Capturing from ${nif.name}")
     supervisorScope{
-        for (x in 1..1000) {
-            println("==================== Data ====================")
+        while (!false) {
+            //println("==================== Data ====================")
             val packet = handle.nextPacket
             // I'll only work with IPV4 for now
             beforeCaptureTimestamp = handle.timestamp.time
             val ipv4Packet = packet.get<IpV4Packet>(IpV4Packet::class.java)
             afterCaptureTimestamp = handle.timestamp.time
-            launch(Dispatchers.IO){
-                updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
+            if (ipv4Packet != null)
+                launch(Dispatchers.IO){
+                    updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
+                }
+            val packetTimestamp = handle.timestamp
+            launch (Dispatchers.IO) {
+                dumper.dump(packet, packetTimestamp)
             }
-            dumper.dump(packet, handle.timestamp)
         }
         //println("$ipv4Packet")
     }

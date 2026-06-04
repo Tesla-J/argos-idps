@@ -7,6 +7,7 @@ import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.privileges.isRoot
+import ao.argosidps.smtp.sendAlert
 import kotlin.system.exitProcess
 
 suspend fun main() {
@@ -30,6 +31,7 @@ suspend fun main() {
                                                                       
         |$RESET
     """.trimMargin())
+    //sendAlert("", ""); exitProcess(0)
     loadModel()
     startCapture()
     //val output = process.inputStream.bufferedReader().readText()
