@@ -131,8 +131,7 @@ fun runAnalysis(flow: Array<Double>): String {
     try {
         socket = Socket(addr, port)
         while (!socket.isConnected)
-            continue // todo use sleep
-        val inputStream = socket.inputStream
+            Thread.sleep(100)
         socket.outputStream.write(flowData)
         bytesRead = socket.inputStream.read(result)
     } catch (e: Exception){
