@@ -23,7 +23,7 @@ object DefaultConfiguration {
         const val NIF_NETMASK = "nif_netmask"
         const val ADMIN_EMAIL = "admin_email"
         const val SMTP_HOST = "smtp_host"
-        const val SMTP_PORT = "25"
+        const val SMTP_PORT = "smtp_port"
         const val SMTP_USERNAME = "smtp_username"
         const val SMTP_PASSWD = "smtp_passwd"
     }
