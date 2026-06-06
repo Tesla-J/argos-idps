@@ -1,6 +1,7 @@
 package ao.argosidps.capture
 
 import ao.argosidps.configurations.Configuration
+import ao.argosidps.display.DisplayState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -35,7 +36,7 @@ suspend fun startCapture() {
 
     println("Capturing from ${nif.name}")
     supervisorScope{
-        while (!false) {
+        while (!DisplayState.quit.get()) {
             //println("==================== Data ====================")
             val packet = handle.nextPacket
             if (packet == null) continue

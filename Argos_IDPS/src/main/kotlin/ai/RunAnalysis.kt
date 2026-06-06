@@ -92,7 +92,7 @@ fun loadModel() {
         .waitFor()
     println("${YELLOW}Starting Argos Analyst.${RESET}")
     val serverProcess = ProcessBuilder(PYTHON_INTERPRETER, PYTHON_SCRIPT)
-        .redirectError(ProcessBuilder.Redirect.INHERIT)
+        .redirectError(ProcessBuilder.Redirect.DISCARD)  // Suppress Python warnings
         .start()
     // Chek if server is ready
     var isReady = false
@@ -118,7 +118,7 @@ fun loadModel() {
 fun runAnalysis(flow: Array<Double>): String {
     val addr = "localhost"
     val port = 3469
-    val bufferSize = 1024
+    val bufferSize = 8192  // Increased buffer size
     val socket:Socket
     val result = ByteArray(bufferSize)
     var bytesRead = 0;
@@ -140,4 +140,57 @@ fun runAnalysis(flow: Array<Double>): String {
     }
     socket.close()
     return String(result, 0, bytesRead)
+}
+
+/** Extracts attack type from JSON model response. */
+fun extractAttackType(jsonResponse: String): String {
+    return try {
+        // Look for attack_type field in JSON (model returns "attack_type": "name")
+        val patterns = listOf(
+            "\"attack_type\"\\s*:\\s*\"([^\"]+)\"",
+            "\"attackType\"\\s*:\\s*\"([^\"]+)\"",
+            "\"attack_name\"\\s*:\\s*\"([^\"]+)\"",
+            "\"attackName\"\\s*:\\s*\"([^\"]+)\"",
+            "\"attack\"\\s*:\\s*\"([^\"]+)\"",
+            "\"class\"\\s*:\\s*\"([^\"]+)\""
+        )
+        
+        for (pattern in patterns) {
+            val regex = Regex(pattern)
+            val matchResult = regex.find(jsonResponse)
+            if (matchResult != null) {
+                val attackType = matchResult.groupValues[1]
+                if (attackType.isNotEmpty() && attackType.lowercase() != "unknown") {
+                    return attackType
+                }
+            }
+        }
+        
+        ""
+    } catch (e: Exception) {
+        ""
+    }
+}
+
+/** Checks if response indicates anomaly. */
+fun isAnomalyResponse(jsonResponse: String): Boolean {
+    return try {
+        // Check for anomaly indicators - model returns "status": "ANOMALIA" or "status": "NORMAL"
+        val anomalyPatterns = listOf(
+            "\"status\"\\s*:\\s*\"ANOMALIA\"",  // Exact match for ANOMALIA
+            "\"status\"\\s*:\\s*\"anomalia\"",  // Case insensitive
+            "\"anomaly\"\\s*:\\s*(true|1)",
+            "\"is_anomaly\"\\s*:\\s*(true|1)"
+        )
+        
+        for (pattern in anomalyPatterns) {
+            val regex = Regex(pattern, RegexOption.IGNORE_CASE)
+            if (regex.containsMatchIn(jsonResponse)) {
+                return true
+            }
+        }
+        false
+    } catch (e: Exception) {
+        false
+    }
 }

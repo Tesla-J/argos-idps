@@ -9,7 +9,11 @@ import socket
 import selectors
 import types
 import json
+import warnings
 from concurrent.futures import ThreadPoolExecutor
+
+# Suppress all warnings from scikit-learn
+warnings.filterwarnings('ignore')
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA

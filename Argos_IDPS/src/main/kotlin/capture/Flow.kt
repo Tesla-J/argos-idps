@@ -7,6 +7,8 @@ import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
+import ao.argosidps.display.DisplayState
+import ao.argosidps.display.printFlowRow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.pcap4j.packet.IcmpV4CommonPacket
@@ -30,6 +32,7 @@ private val flowArrivalTimestamps = ConcurrentHashMap<Int, MutableList<Long>>()
 private val flowBytesTotal = ConcurrentHashMap<Int, Long>()
 private val flowPacketsTotal = ConcurrentHashMap<Int, Int>()
 private val flowLocks = ConcurrentHashMap<Int, Mutex>()
+private val flowProtocols = ConcurrentHashMap<Int, String>()
 
 fun isNetworkEquals(addr1: String, addr2: String, netmask: String): Boolean{
     val addr1ULong = addr1
@@ -55,8 +58,26 @@ private fun <T: Number> List<T>.std(): Double {
     return (sqrt(sum / double.size))
 }
 
-private fun printFlow(flowId: Int, analysisResult: String){
-    println("""${BLUE}
+private fun printFlowTableRow(flowId: Int, analysisResult: String, protocol: String){
+    if (!DisplayState.paused.get()) {
+        val flowData = flows[flowId] ?: return
+        // Use improved anomaly detection
+        val isAnomaly = ao.argosidps.ai.isAnomalyResponse(analysisResult)
+        val resultStatus = if (isAnomaly) "ANOMALIA" else "NORMAL"
+        // Extract attack type from JSON if anomaly detected
+        val attackType = if (isAnomaly) ao.argosidps.ai.extractAttackType(analysisResult) else ""
+        printFlowRow(
+            flowData,
+            protocol,
+            resultStatus,
+            attackType
+        )
+    }
+}
+
+private fun printFlowDetailed(flowId: Int, analysisResult: String){
+    if (!DisplayState.paused.get()) {
+        println("""${BLUE}
         |Flow Duration:             ${flows[flowId]!![0]} milliseconds
         |Bytes/s:                   ${flows[flowId]!![1]}
         |Packets/s:                 ${flows[flowId]!![2]}
@@ -73,6 +94,7 @@ private fun printFlow(flowId: Int, analysisResult: String){
         |Flow Analysis Result:      ${if (analysisResult.contains("ANOMALIA")) RED else GREEN} $analysisResult
         |$RESET
     """.trimMargin())
+    }
 }
 
 suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, timestampAfterCapture: Long){
@@ -96,6 +118,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
             flowBytesTotal[flowId] = packet.rawData.size.toLong()
             flowPacketsTotal[flowId] = 1
             flowArrivalTimestamps[flowId] = mutableListOf(timestampAfterCapture)
+            flowProtocols[flowId] = tuple[4] // Store protocol
             flows[flowId] = arrayOf(
                 (timestampAfterCapture - timestampBeforeCapture).toDouble(), // Flow Duration
                 flowBytesTotal[flowId]!!.toDouble(), // Bytes/s
@@ -113,7 +136,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
             )
         }
         val analysisResult = runAnalysis(flows[flowId]!!)
-        printFlow(flowId, analysisResult)
+        printFlowTableRow(flowId, analysisResult, tuple[4])
         return
     }
     flowLocks.getOrPut(flowId) { Mutex() }.withLock {
@@ -148,7 +171,7 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
         flows[flowId]!![12] = iat.std() // Flow IAT Std
     }
     val analysisResult = runAnalysis(flows[flowId]!!)
-    printFlow(flowId, analysisResult)
+    printFlowTableRow(flowId, analysisResult, flowProtocols[flowId] ?: "UNKNOWN")
 }
 
 suspend fun getTuple(packet: IpV4Packet): Array<String> {
