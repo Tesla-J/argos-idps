@@ -31,7 +31,6 @@ suspend fun main() {
                                                                       
         |$RESET
     """.trimMargin())
-    //sendAlert("", ""); exitProcess(0)
     loadModel()
     startCapture()
     //val output = process.inputStream.bufferedReader().readText()

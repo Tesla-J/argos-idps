@@ -17,6 +17,7 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+var captureFilename: String? = null
 
 suspend fun startCapture() {
     //val addr = InetAddress.getByName("127.0.0.1")
@@ -31,6 +32,7 @@ suspend fun startCapture() {
     File(dumpPath).mkdirs() // creates /var/log/argos if the folder does not exist
     val dateFormater = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
     val dumpFile = "${dumpPath}/captures_${LocalDateTime.now().format(dateFormater)}.pcap"
+    captureFilename = dumpFile
     val dumper = handle.dumpOpen(dumpFile)
 
     println("Capturing from ${nif.name}")
