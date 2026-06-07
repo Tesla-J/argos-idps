@@ -7,6 +7,7 @@ import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
+import ao.argosidps.smtp.sendAlert
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.pcap4j.packet.IcmpV4CommonPacket
@@ -112,8 +113,20 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
                 .0, // FLOW IAT Std
             )
         }
+        /*
+        Why analyse a flow that just started?
+
         val analysisResult = runAnalysis(flows[flowId]!!)
+        if (analysisResult.contains("ANOMALIA")){
+            sendAlert(
+                analysisResult
+                    .substringAfter("\"attach_type\": \"")
+                    .substringBefore("\""),
+                packet.header.srcAddr.hostAddress,
+                captureFilename!!)
+        }
         printFlow(flowId, analysisResult)
+        */
         return
     }
     flowLocks.getOrPut(flowId) { Mutex() }.withLock {
@@ -148,6 +161,14 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
         flows[flowId]!![12] = iat.std() // Flow IAT Std
     }
     val analysisResult = runAnalysis(flows[flowId]!!)
+    if (analysisResult.contains("ANOMALIA")){
+        sendAlert(
+            analysisResult
+                .substringAfter("\"attach_type\": \"")
+                .substringBefore("\""),
+            packet.header.srcAddr.hostAddress,
+            captureFilename!!)
+    }
     printFlow(flowId, analysisResult)
 }
 
