@@ -3,8 +3,6 @@ package ao.argosidps.capture
 import ao.argosidps.configurations.Configuration
 import ao.argosidps.display.DisplayState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import org.pcap4j.core.PcapNetworkInterface
@@ -19,9 +17,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 
+
 suspend fun startCapture() {
-    //val addr = InetAddress.getByName("127.0.0.1")
-    val nif: PcapNetworkInterface = Pcaps.getDevByAddress(InetAddress.getByName(Configuration.nifAddr)) //Pcaps.getDevByAddress(addr)
+    val nif: PcapNetworkInterface = Pcaps.getDevByAddress(InetAddress.getByName(Configuration.nifAddr))
     val snapLen = Int.MAX_VALUE
     val mode: PcapNetworkInterface.PromiscuousMode = PcapNetworkInterface.PromiscuousMode.PROMISCUOUS
     val timeout = 10
@@ -29,33 +27,59 @@ suspend fun startCapture() {
     var beforeCaptureTimestamp: Long
     var afterCaptureTimestamp: Long
     val dumpPath = "/var/log/argos"
-    File(dumpPath).mkdirs() // creates /var/log/argos if the folder does not exist
+    File(dumpPath).mkdirs()
     val dateFormater = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
     val dumpFile = "${dumpPath}/captures_${LocalDateTime.now().format(dateFormater)}.pcap"
     val dumper = handle.dumpOpen(dumpFile)
 
     println("Capturing from ${nif.name}")
-    supervisorScope{
+    
+    try {
         while (!DisplayState.quit.get()) {
-            //println("==================== Data ====================")
             val packet = handle.nextPacket
             if (packet == null) continue
-            // I'll only work with IPV4 for now
-            beforeCaptureTimestamp = handle.timestamp.time
-            val ipv4Packet = packet.get<IpV4Packet>(IpV4Packet::class.java)
-            afterCaptureTimestamp = handle.timestamp.time
-            if (ipv4Packet != null)
-                launch(Dispatchers.IO){
-                    updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
+            
+            try {
+                // Get timestamp immediately after receiving packet
+                var packetTimestamp = handle.timestamp
+                // Use system timestamp if packet timestamp is null
+                if (packetTimestamp == null) {
+                    packetTimestamp = Timestamp(System.currentTimeMillis())
                 }
-            val packetTimestamp = handle.timestamp
-            launch (Dispatchers.IO) {
-                dumper.dump(packet, packetTimestamp)
+                
+                // Process packet synchronously to prevent coroutine accumulation
+                beforeCaptureTimestamp = packetTimestamp.time
+                val ipv4Packet = packet.get<IpV4Packet>(IpV4Packet::class.java)
+                afterCaptureTimestamp = packetTimestamp.time
+                
+                if (ipv4Packet != null) {
+                    withContext(Dispatchers.IO) {
+                        updateFlowStats(ipv4Packet, beforeCaptureTimestamp, afterCaptureTimestamp)
+                    }
+                }
+                
+                withContext(Dispatchers.IO) {
+                    dumper.dump(packet, packetTimestamp)
+                }
+            } catch (e: Exception) {
+                // Log error but continue processing
+                // Suppress verbose error output for cleaner display
+                if (e.message?.contains("ts: null") != true) {
+                    System.err.println("Error processing packet: ${e.message}")
+                }
+                // Continue processing next packet on error
             }
         }
-        //println("$ipv4Packet")
+    } finally {
+        try {
+            dumper.close()
+        } catch (e: Exception) {
+            System.err.println("Error closing dumper: ${e.message}")
+        }
+        try {
+            handle.close()
+        } catch (e: Exception) {
+            System.err.println("Error closing handle: ${e.message}")
+        }
     }
-    //val inetAddress = ipv4Packet.header.srcAddr
-    dumper.close()
-    handle.close()
 }
