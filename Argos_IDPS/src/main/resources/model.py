@@ -1,37 +1,29 @@
 #!/usr/bin/env python3
 
 import joblib
-import pandas as pd
 import numpy as np
 import os
-import sys
 import socket
-import selectors
-import types
 import json
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 
-# Suppress all warnings from scikit-learn
 warnings.filterwarnings('ignore')
 
 # =====================================================
 # 1. CARREGAR MODELOS E METADATA
 # =====================================================
 
-#print("[ARGOS] A carregar modelos...")
-
 path = '/tmp/argos/'
-iso_model = joblib.load(f"{path}iso_forest.pkl")
-rf_model = joblib.load(f"{path}rf_classifier.pkl")
-scaler = joblib.load(f"{path}scaler.pkl")
+iso_model       = joblib.load(f"{path}iso_forest.pkl")
+rf_model        = joblib.load(f"{path}rf_classifier.pkl")
+scaler          = joblib.load(f"{path}scaler.pkl")
 FEATURE_COLUMNS = joblib.load(f"{path}features.pkl")
-label_encoder = joblib.load(f"{path}label_encoder.pkl")
-
-#print("[ARGOS] Modelos carregados com sucesso")
+label_encoder   = joblib.load(f"{path}label_encoder.pkl")
+IF_THRESHOLD    = joblib.load(f"{path}if_threshold.pkl")
 
 # =====================================================
-# 2. FUNÇÃO DE INFERÊNCIA (CHAMAR A IA)
+# 2. FUNÇÃO DE INFERÊNCIA
 # =====================================================
 
 def argos_predict(flow_values):
@@ -39,63 +31,30 @@ def argos_predict(flow_values):
         raise ValueError(
             f"Esperado {len(FEATURE_COLUMNS)} valores, recebido {len(flow_values)}"
         )
-    X = np.array([flow_values], dtype=float) #pd.DataFrame([flow_values], columns=FEATURE_COLUMNS)
+
+    X        = np.array([flow_values], dtype=float)
     X_scaled = scaler.transform(X)
-    iso_pred = iso_model.predict(X_scaled)[0]
-    if iso_pred == 1:
-        return {
-            "status": "NORMAL",
-            "attack_type": 'Unknown'
-        }
-    rf_pred = rf_model.predict(X_scaled)[0]
+
+    # score_samples() devolve pontuação contínua.
+    # Score abaixo do threshold calibrado = anomalia.
+    # predict() NÃO é usado porque usa contamination fixo do modelo
+    # e ignora a calibração feita durante o treino.
+    score = iso_model.score_samples(X_scaled)[0]
+
+    if score >= IF_THRESHOLD:
+        return {"status": "NORMAL", "attack_type": "Unknown"}
+
+    rf_pred     = rf_model.predict(X_scaled)[0]
     attack_name = label_encoder.inverse_transform([rf_pred])[0]
-    return {
-        "status": "ANOMALIA",
-        "attack_type": attack_name
-    }
+    return {"status": "ANOMALIA", "attack_type": attack_name}
 
-# =======================================================
-#                       LINK START!
-# =======================================================
+# =====================================================
+# 3. SERVIDOR TCP
+# =====================================================
 
-HOST = 'localhost'
-PORT = 3469
+HOST        = 'localhost'
+PORT        = 3469
 BUFFER_SIZE = 1024
-sel = selectors.DefaultSelector()
-
-def accept_wrapper(sock):
-    conn, addr = sock.accept()
-    conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b'', outb=b'')
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
-
-def handle_connection(key, mask):
-    sock = key.fileobj
-    data = key.data
-    if mask & selectors.EVENT_READ:
-        received_data = sock.recv(BUFFER_SIZE)
-        if received_data:
-            try:
-                data.outb += json.dumps(
-                    argos_predict(
-                        list(
-                            map(
-                                float,
-                                received_data.decode('utf-8').split('|'))
-                        )
-                    )
-                ).encode()
-            except:
-                pass
-        else:
-            sel.unregister(sock)
-            sock.close()
-    # todo test with elif
-    if mask & selectors.EVENT_WRITE:
-        if data.outb:
-            sent_count = sock.sendall(data.outb)
-            data.outb = data.outb[sent_count:]
 
 def handle_analysis(conn):
     with conn:
@@ -105,25 +64,21 @@ def handle_analysis(conn):
                 return
             result = json.dumps(
                 argos_predict(
-                    list(
-                        map(
-                            float,
-                            data.decode('utf-8').split('|'))
-                    )
+                    list(map(float, data.decode('utf-8').split('|')))
                 )
             ).encode()
             conn.sendall(result)
-        except Exception as e:
-            pass #print(f'[ERROR] {e}', file=sys.stderr)
+        except Exception:
+            pass
 
 def init():
-    workers = os.cpu_count() * 4
+    workers  = os.cpu_count() * 4
     executor = ThreadPoolExecutor(max_workers=workers)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((HOST, PORT))
         sock.listen(256)
-        while not False:
+        while True:
             conn, _ = sock.accept()
             executor.submit(handle_analysis, conn)
 
