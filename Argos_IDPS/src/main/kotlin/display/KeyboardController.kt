@@ -29,47 +29,37 @@ fun startKeyboardController() {
     Runtime.getRuntime().addShutdownHook(Thread {
         try {
             Runtime.getRuntime().exec(arrayOf("/bin/sh", "-c", "stty echo icanon < /dev/tty")).waitFor()
-        } catch (e: Exception) {
-            // Ignore errors during cleanup
-        }
+        } catch (_: Exception) { }
     })
 
     val thread = Thread {
         try {
             println("${CYAN}${BOLD}[ARGOS] Keyboard controls: p=pause, c=continue, q=quit${RESET}")
-            
             val inputStream = System.`in`
             while (!DisplayState.quit.get()) {
-                try {
-                    val byte = inputStream.read()
-                    if (byte == -1) break
-                    
-                    val key = byte.toChar().lowercaseChar()
-                    when (key) {
-                        'p' -> {
-                            if (!DisplayState.paused.get()) {
-                                DisplayState.paused.set(true)
-                                println()
-                                println("$YELLOW${BOLD}[ARGOS] Display PAUSED — press 'c' to resume, 'q' to quit.$RESET")
-                            }
-                        }
-                        'c' -> {
-                            if (DisplayState.paused.get()) {
-                                DisplayState.paused.set(false)
-                                println("$GREEN${BOLD}[ARGOS] Display RESUMED.$RESET")
-                                printTableHeader()
-                            }
-                        }
-                        'q' -> {
+                val byte = try { inputStream.read() } catch (_: Exception) { break }
+                if (byte == -1) break
+                when (byte.toChar().lowercaseChar()) {
+                    'p' -> {
+                        if (!DisplayState.paused.get()) {
+                            DisplayState.paused.set(true)
                             println()
-                            println("$RED${BOLD}[ARGOS] Shutting down...$RESET")
-                            DisplayState.quit.set(true)
-                            exitProcess(0)
+                            println("$YELLOW${BOLD}[ARGOS] Display PAUSED — press 'c' to resume, 'q' to quit.$RESET")
                         }
-                        else -> { /* ignore other keys */ }
                     }
-                } catch (e: Exception) {
-                    break
+                    'c' -> {
+                        if (DisplayState.paused.get()) {
+                            DisplayState.paused.set(false)
+                            println("$GREEN${BOLD}[ARGOS] Display RESUMED.$RESET")
+                            printTableHeader()
+                        }
+                    }
+                    'q' -> {
+                        println()
+                        println("$RED${BOLD}[ARGOS] Shutting down...$RESET")
+                        DisplayState.quit.set(true)
+                        exitProcess(0)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -77,6 +67,6 @@ fun startKeyboardController() {
         }
     }
     thread.isDaemon = true
-    thread.name = "argos-keyboard"
+    thread.name     = "argos-keyboard"
     thread.start()
 }
