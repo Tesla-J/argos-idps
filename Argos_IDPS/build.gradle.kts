@@ -44,8 +44,7 @@ dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
     // Source: https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
     implementation("ch.qos.logback:logback-classic:1.5.32")
-    implementation("at.quickme.kotlinmailer:core:1.1.20")
-    implementation("at.quickme.kotlinmailer:html:1.1.20")
+    implementation("org.simplejavamail:simple-java-mail:8.12.6")
     testImplementation(kotlin("test"))
 }
 
