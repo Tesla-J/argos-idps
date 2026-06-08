@@ -7,6 +7,7 @@ import ao.argosidps.colors.RED
 import ao.argosidps.colors.RESET
 import ao.argosidps.colors.YELLOW
 import ao.argosidps.configurations.Configuration
+import ao.argosidps.ipblock.blockAddr
 import ao.argosidps.smtp.sendAlert
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -164,10 +165,11 @@ suspend fun updateFlowStats(packet: IpV4Packet, timestampBeforeCapture: Long, ti
     if (analysisResult.contains("ANOMALIA")){
         sendAlert(
             analysisResult
-                .substringAfter("\"attach_type\": \"")
+                .substringAfter("\"attack_type\": \"")
                 .substringBefore("\""),
             packet.header.srcAddr.hostAddress,
             captureFilename!!)
+        blockAddr(packet.header.srcAddr.hostAddress)
     }
     printFlow(flowId, analysisResult)
 }
