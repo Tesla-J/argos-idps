@@ -35,7 +35,7 @@ object DefaultConfiguration {
         const val NIF_ADDR_DEFAULT = "127.0.0.1"
         const val NIF_NETMASK_DEFAULT = "255.0.0.0"
         const val ADMIN_EMAIL_DEFAULT = "please@change.me"
-        const val SMTP_HOST_DEFAULT = "smtp.domail.com"
+        const val SMTP_HOST_DEFAULT = "smtp.domain.com"
         const val SMTP_PORT_DEFAULT = "25"
         const val SMTP_USERNAME_DEFAULT = "argos@domain.com"
         const val SMTP_PASSWRD_DEFAULT = "secretpassword"
