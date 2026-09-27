@@ -28,6 +28,18 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/org.python/jython-standalone
     implementation("org.python:jython-standalone:2.7.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    // Source: https://mvnrepository.com/artifact/org.pcap4j/pcap4j
+    implementation("org.pcap4j:pcap4j-core:1.8.2")
+    implementation("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
+    implementation("org.pcap4j:pcap4j:1.8.2")
+    // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
+    implementation("net.java.dev.jna:jna:5.18.1")
+    // Source: https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation("org.slf4j:slf4j-api:2.0.17")
+    // Source: https://mvnrepository.com/artifact/ch.qos.logback/logback-core
+    implementation("ch.qos.logback:logback-core:1.5.32")
+    // Source: https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+    implementation("ch.qos.logback:logback-classic:1.5.32")
     testImplementation(kotlin("test"))
 }
 
